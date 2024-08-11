@@ -1,28 +1,21 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useSnapshot } from "valtio";
-import Razorpay from "razorpay";
-import axios from "axios";  // You might need axios for API requests
-
-import config from "../config/config";
+import axios from "axios";
 import state from "../store";
-import { download } from "../assets";
-import { downloadCanvasToImage, reader } from "../config/helpers";
-import {
-  EditorTabs,
-  DecalTypes,
-  FilterTabs,
-  Download,
-} from "../config/constants";
+import { downloadCanvasToImage } from "../config/helpers";
 import { fadeAnimation, slideAnimation } from "../config/motion";
-import Tab from "../components/Tab";
 import CustomButton from "../components/CustomButton";
+import { EditorTabs, DecalTypes, FilterTabs, Download } from "../config/constants";
+import Tab from "../components/Tab";
 import ColorPicker from "../components/ColorPicker";
 import FilePicker from "../components/FilePicker";
 import AIPicker from "../components/AIPicker";
+import { useAuth } from "@clerk/clerk-react";
 
 const Customizer = () => {
   const snap = useSnapshot(state);
+  const { sessionId } = useAuth();
 
   const [file, setFile] = useState("");
   const [prompt, setPrompt] = useState("");
@@ -55,23 +48,18 @@ const Customizer = () => {
 
   const handlePayment = async () => {
     console.log("Buy Now button clicked");
-    const amount = 500; // Store amount in a variable for consistency
-  
+    const amount = 500; // Set the amount
+
     try {
       // 1. Fetch Razorpay key from backend
-      console.log("Fetching Razorpay key...");
       const keyResponse = await axios.get("http://localhost:8080/api/razorpay-key");
       const key = keyResponse.data.key;
-      console.log("Razorpay key fetched successfully");
-  
+
       // 2. Create an order
-      console.log("Creating order...");
       const orderResponse = await axios.post("http://localhost:8080/api/orders", { amount });
       const { id: order_id, amount: orderAmount, currency } = orderResponse.data;
-      console.log("Order created successfully", { order_id, amount: orderAmount, currency });
-  
+
       // 3. Initialize Razorpay
-      console.log("Initializing Razorpay...");
       const options = {
         key: key,
         amount: orderAmount,
@@ -80,22 +68,15 @@ const Customizer = () => {
         description: "Thank you for your purchase",
         order_id: order_id,
         handler: async (response) => {
-          console.log("Payment successful, capturing payment...");
           const paymentId = response.razorpay_payment_id;
-  
-          console.log("Current state:", snap);
-  
+
           // 4. Capture the image
-          console.log("Attempting to capture image...");
           const image = downloadCanvasToImage();
-          console.log("Captured image:", image ? "Image captured successfully" : "Image capture failed");
-  
           if (!image) {
-            console.error("No image available to upload!");
             alert("No image available to upload!");
             return;
           }
-  
+
           // Check image size (assuming image is a base64 string)
           const imageSizeInBytes = Math.ceil((image.length / 4) * 3);
           const imageSizeInMB = imageSizeInBytes / (1024 * 1024);
@@ -103,27 +84,27 @@ const Customizer = () => {
             alert("Image size too large. Please use an image smaller than 10MB.");
             return;
           }
-  
-          console.log("Capturing payment and uploading image...");
+
+          // 5. Capture payment and upload image
           try {
-            const captureResponse = await axios.post(`http://localhost:8080/api/capture/${paymentId}`, {
-              amount,
-              image: image,
-            }, {
-              maxContentLength: Infinity,
-              maxBodyLength: Infinity
-            });
-            console.log('Capture response:', captureResponse.data);
-  
+            const captureResponse = await axios.post(
+              `http://localhost:8080/api/capture/${paymentId}`,
+              { amount, image },
+              {
+                headers: {
+                  Authorization: `Bearer ${sessionId}`, // Use the session ID for authentication
+                },
+                maxContentLength: Infinity,
+                maxBodyLength: Infinity,
+              }
+            );
+
             if (captureResponse.data.imageUrl) {
-              console.log("Payment captured and image uploaded successfully");
               alert("Payment successful and image uploaded!");
             } else {
-              console.error("Payment captured but image upload failed");
               alert("Payment successful but image upload failed");
             }
           } catch (uploadError) {
-            console.error("Error during capture/upload:", uploadError);
             if (uploadError.response && uploadError.response.status === 413) {
               alert("Image too large to upload. Please try a smaller image.");
             } else if (uploadError.response && uploadError.response.data) {
@@ -145,21 +126,19 @@ const Customizer = () => {
           color: "#F37254",
         },
       };
-  
+
       // Check if Razorpay is loaded
       if (typeof window.Razorpay === 'undefined') {
         throw new Error("Razorpay SDK is not loaded");
       }
-  
+
       const rzp = new window.Razorpay(options);
       rzp.open();
-  
+
     } catch (error) {
-      console.error("Payment failed:", error.response ? error.response.data : error.message);
       alert(`Payment failed: ${error.response ? error.response.data : error.message}`);
     }
   };
-  
 
   const handleSubmit = async (type) => {
     if (!prompt) return alert("Please enter the prompt!");
@@ -287,18 +266,16 @@ const Customizer = () => {
 
           {/* Razorpay Payment Button */}
           <motion.div
-               className="absolute z-10 bottom-5 right-5"
-                   {...fadeAnimation}
-            >
+            className="absolute z-10 bottom-5 right-5"
+            {...fadeAnimation}
+          >
             <CustomButton
-             type="filled"
-             title="Buy Now"
-             handleClick={handlePayment}
-            customStyles="w-fit px-4 py-2.5 font-bold text-sm"
+              type="filled"
+              title="Buy Now"
+              handleClick={handlePayment}
+              customStyles="w-fit px-4 py-2.5 font-bold text-sm"
             />
           </motion.div>
-
-
         </>
       )}
     </AnimatePresence>
