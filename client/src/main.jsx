@@ -7,7 +7,7 @@ import Home from "./pages/Home";
 import "./index.css";
 import SignInPage from "./components/SignInPage";
 import SignUpPage from "./components/SignUpPage";
-import Board from "./components/board";
+import Dashboard from "./components/Dashboard";
 
 const PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 
@@ -24,7 +24,8 @@ ReactDOM.createRoot(document.getElementById("root")).render(
           <Route path="/sign-up" element={<SignUpPage />} />
           <Route path="/edit" element={<App />} />
           <Route path="/" element={<App />} />
-          <Route path="/dashboard" element={< Board/>} />
+          <Route path="/dashboard" element={< Dashboard/>} />
+          
         </Routes>
       </BrowserRouter>
     </ClerkProvider>

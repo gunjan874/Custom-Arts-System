@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState } from "react";
 import Home from "./pages/Home";
 import KonvaPage from "./pages/KonvaPage";
 import Canvas from "./canvas";
@@ -11,12 +11,12 @@ function App() {
     <main className="app transition-all ease-in">
       {!showKonva ? (
         <>
-          <Home setShowKonva={setShowKonva} />
+          <Home />
           <Canvas />
-          <Customizer />
+          <Customizer setShowKonva={setShowKonva} />
         </>
       ) : (
-        <KonvaPage setShowKonva={setShowKonva} />  
+        <KonvaPage setShowKonva={setShowKonva} />
       )}
     </main>
   );

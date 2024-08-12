@@ -1,9 +1,10 @@
 import mongoose from 'mongoose';
 
 const UserSchema = new mongoose.Schema({
-    username: { type: String, required: true, unique: true },
-    password: { type: String, required: true },
-    images: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Image' }],
+  _id: { type: String, required: true }, // Use custom userId as the _id
+  username: { type: String },
+  password: { type: String },
+  images: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Image' }],
 });
 
 const User = mongoose.model('User', UserSchema);

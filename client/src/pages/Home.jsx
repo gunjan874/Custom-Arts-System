@@ -8,12 +8,7 @@ import {
   headTextAnimation,
   slideAnimation,
 } from "../config/motion";
-import {
-  SignedIn,
-  SignedOut,
-  useAuth,
-  UserButton,
-} from "@clerk/clerk-react";
+import { SignedIn, SignedOut, useAuth, UserButton } from "@clerk/clerk-react";
 import { useNavigate } from "react-router-dom";
 
 const Home = ({ setShowKonva }) => {
@@ -40,14 +35,16 @@ const Home = ({ setShowKonva }) => {
     <AnimatePresence>
       {snap.intro && (
         <motion.section className="home" {...slideAnimation("left")}>
-          <motion.header {...slideAnimation("down")} className="flex justify-between items-center">
+          <motion.header
+            {...slideAnimation("down")}
+            className=" flex justify-between items-center px-4 py-2 "
+          >
             <img
-              src="./threejs.png"
+              src="./logo.gif"
               alt="logo"
-              className="w-8 h-8 object-contain"
+              className="w-20 h-20 object-contain"
             />
-
-            <div className="flex-end">
+            <div className="flex space-x-4">
               <SignedOut>
                 <CustomButton
                   type="filled"
@@ -64,15 +61,19 @@ const Home = ({ setShowKonva }) => {
 
           <motion.div className="home-content" {...headContainerAnimation}>
             <motion.div {...headTextAnimation}>
-              <h1 className="head-text">
-                LET'S <br className="xl:block hidden" /> <span>DO</span> IT
+              <h1 className="text-5xl md:text-7xl xl:text-8xl font-bold leading-tight">
+                Custom <br className="xl:block hidden" />{" "}
+                <span className="text-6xl md:text-7xl xl:text-8xl">
+                  Art System
+                </span>
               </h1>
             </motion.div>
+
             <motion.div
               {...headContentAnimation}
               className="flex flex-col gap-5"
             >
-              <p className="max-w-md font-normal text-gray-600 text-base">
+              <p className="max-w-md font-normal text-gray-600 text-base ">
                 Create your unique and exclusive tshirt with our brand new 3D
                 customization tool. <strong>Unleash your imagination</strong>{" "}
                 and define your style.
@@ -85,12 +86,7 @@ const Home = ({ setShowKonva }) => {
                 handleClick={handleCustomizeClick}
                 customStyles="w-fit px-4 py-2.5 font-bold text-sm"
               />
-              <CustomButton
-                type="filled"
-                title="Open Konva"
-                handleClick={() => setShowKonva(true)}
-                customStyles="w-fit px-4 py-2.5 font-bold text-sm"
-              />
+              
             </div>
           </motion.div>
         </motion.section>

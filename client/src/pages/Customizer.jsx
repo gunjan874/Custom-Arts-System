@@ -1,30 +1,64 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useSnapshot } from "valtio";
-import axios from "axios";
+import Razorpay from "razorpay";
+import axios from "axios"; // You might need axios for API requests
+
+import config from "../config/config";
 import state from "../store";
-import { downloadCanvasToImage } from "../config/helpers";
+import { download } from "../assets";
+import { downloadCanvasToImage, reader } from "../config/helpers";
+import {
+  EditorTabs,
+  DecalTypes,
+  FilterTabs,
+  Download,
+} from "../config/constants";
 import { fadeAnimation, slideAnimation } from "../config/motion";
-import CustomButton from "../components/CustomButton";
-import { EditorTabs, DecalTypes, FilterTabs, Download } from "../config/constants";
 import Tab from "../components/Tab";
+import CustomButton from "../components/CustomButton";
 import ColorPicker from "../components/ColorPicker";
 import FilePicker from "../components/FilePicker";
 import AIPicker from "../components/AIPicker";
-import { useAuth } from "@clerk/clerk-react";
+import { SignedIn, UserButton, useUser } from "@clerk/clerk-react";
+import { useNavigate } from "react-router-dom";
 
-const Customizer = () => {
+const Customizer = ({ setShowKonva }) => {
   const snap = useSnapshot(state);
-  const { sessionId } = useAuth();
+  const { user } = useUser();
+  const navigate = useNavigate();
+
+  console.log(user);
 
   const [file, setFile] = useState("");
   const [prompt, setPrompt] = useState("");
+  const [logos, setLogos] = useState([]);
   const [generatingImg, setGeneratingImg] = useState(false);
   const [activeEditorTab, setActiveEditorTab] = useState();
   const [activeFilterTab, setActiveFilterTab] = useState({
     logoShirt: true,
     stylishShirt: false,
   });
+  const handleFileUpload = (file) => {
+    reader(file).then((result) => {
+      setLogos((prevLogos) => [
+        ...prevLogos,
+        {
+          id: Date.now(),
+          texture: result,
+          position: [0, 0.04, 0.15],
+          scale: 0.15,
+        },
+      ]);
+    });
+  };
+  const handleLogoChange = (id, property, value) => {
+    setLogos((prevLogos) =>
+      prevLogos.map((logo) =>
+        logo.id === id ? { ...logo, [property]: value } : logo
+      )
+    );
+  };
 
   const generateTabContent = () => {
     switch (activeEditorTab) {
@@ -41,6 +75,11 @@ const Customizer = () => {
             handleSubmit={handleSubmit}
           />
         );
+
+      case "avatar":
+        // Open the URL in a new tab
+        window.open("http://localhost:3000/", "_blank");
+        return null;
       default:
         return null;
     }
@@ -48,18 +87,36 @@ const Customizer = () => {
 
   const handlePayment = async () => {
     console.log("Buy Now button clicked");
-    const amount = 500; // Set the amount
+    const amount = 500; // Store amount in a variable for consistency
 
     try {
       // 1. Fetch Razorpay key from backend
-      const keyResponse = await axios.get("http://localhost:8080/api/razorpay-key");
+      console.log("Fetching Razorpay key...");
+      const keyResponse = await axios.get(
+        "http://localhost:8080/api/razorpay-key"
+      );
       const key = keyResponse.data.key;
+      console.log("Razorpay key fetched successfully");
 
       // 2. Create an order
-      const orderResponse = await axios.post("http://localhost:8080/api/orders", { amount });
-      const { id: order_id, amount: orderAmount, currency } = orderResponse.data;
+      console.log("Creating order...");
+      const orderResponse = await axios.post(
+        "http://localhost:8080/api/orders",
+        { amount }
+      );
+      const {
+        id: order_id,
+        amount: orderAmount,
+        currency,
+      } = orderResponse.data;
+      console.log("Order created successfully", {
+        order_id,
+        amount: orderAmount,
+        currency,
+      });
 
       // 3. Initialize Razorpay
+      console.log("Initializing Razorpay...");
       const options = {
         key: key,
         amount: orderAmount,
@@ -68,11 +125,21 @@ const Customizer = () => {
         description: "Thank you for your purchase",
         order_id: order_id,
         handler: async (response) => {
+          console.log("Payment successful, capturing payment...");
           const paymentId = response.razorpay_payment_id;
 
+          console.log("Current state:", snap);
+
           // 4. Capture the image
+          console.log("Attempting to capture image...");
           const image = downloadCanvasToImage();
+          console.log(
+            "Captured image:",
+            image ? "Image captured successfully" : "Image capture failed"
+          );
+
           if (!image) {
+            console.error("No image available to upload!");
             alert("No image available to upload!");
             return;
           }
@@ -80,43 +147,69 @@ const Customizer = () => {
           // Check image size (assuming image is a base64 string)
           const imageSizeInBytes = Math.ceil((image.length / 4) * 3);
           const imageSizeInMB = imageSizeInBytes / (1024 * 1024);
-          if (imageSizeInMB > 10) { // Adjust this threshold as needed
-            alert("Image size too large. Please use an image smaller than 10MB.");
+          if (imageSizeInMB > 10) {
+            // Adjust this threshold as needed
+            alert(
+              "Image size too large. Please use an image smaller than 10MB."
+            );
             return;
           }
 
-          // 5. Capture payment and upload image
+          console.log("Capturing payment and uploading image...");
           try {
             const captureResponse = await axios.post(
               `http://localhost:8080/api/capture/${paymentId}`,
-              { amount, image },
               {
-                headers: {
-                  Authorization: `Bearer ${sessionId}`, // Use the session ID for authentication
-                },
+                amount,
+                image: image,
+                userId: user.id,
+              },
+              {
                 maxContentLength: Infinity,
                 maxBodyLength: Infinity,
               }
             );
+            console.log("Capture response:", captureResponse.data);
 
             if (captureResponse.data.imageUrl) {
+              console.log("Payment captured and image uploaded successfully");
               alert("Payment successful and image uploaded!");
             } else {
+              console.error("Payment captured but image upload failed");
               alert("Payment successful but image upload failed");
             }
           } catch (uploadError) {
+            console.error("Error during capture/upload:", uploadError);
+
+            // Use JSON.stringify to properly display the error object
             if (uploadError.response && uploadError.response.status === 413) {
               alert("Image too large to upload. Please try a smaller image.");
             } else if (uploadError.response && uploadError.response.data) {
-              alert(`Payment successful but upload failed: ${uploadError.response.data}`);
+              console.log(
+                `Payment successful but upload failed: ${JSON.stringify(
+                  uploadError.response.data
+                )}`
+              );
+              alert(
+                `Payment successful but upload failed: ${JSON.stringify(
+                  uploadError.response.data
+                )}`
+              );
             } else {
-              alert(`Payment successful but upload failed: ${uploadError.message}`);
+              console.log(
+                `Payment successful but upload failed: ${JSON.stringify(
+                  uploadError.response.data
+                )}`
+              );
+              alert(
+                `Payment successful but upload failed: ${uploadError.message}`
+              );
             }
           }
         },
         prefill: {
-          name: "John Doooe",
-          email: "john@example.com",
+          name: user.fullName,
+          email: user.primaryEmailAddress.emailAddress,
           contact: "9999999789",
         },
         notes: {
@@ -128,15 +221,22 @@ const Customizer = () => {
       };
 
       // Check if Razorpay is loaded
-      if (typeof window.Razorpay === 'undefined') {
+      if (typeof window.Razorpay === "undefined") {
         throw new Error("Razorpay SDK is not loaded");
       }
 
       const rzp = new window.Razorpay(options);
       rzp.open();
-
     } catch (error) {
-      alert(`Payment failed: ${error.response ? error.response.data : error.message}`);
+      console.error(
+        "Payment failed:",
+        error.response ? error.response.data : error.message
+      );
+      alert(
+        `Payment failed: ${
+          error.response ? error.response.data : error.message
+        }`
+      );
     }
   };
 
@@ -229,15 +329,26 @@ const Customizer = () => {
           </motion.div>
 
           <motion.div
-            className="absolute z-10 top-5 right-5"
+            className="absolute z-10 top-5 right-5 flex items-center space-x-4"
             {...fadeAnimation}
           >
+            <CustomButton
+              type="filled"
+              title="DashBoard"
+              handleClick={() => navigate("/dashboard")}
+              customStyles="w-fit px-4 py-2.5 font-bold text-sm"
+            />
             <CustomButton
               type="filled"
               title="Go Back"
               handleClick={() => (state.intro = true)}
               customStyles="w-fit px-4 py-2.5 font-bold text-sm"
             />
+            <div className="flex items-center">
+              <SignedIn>
+                <UserButton />
+              </SignedIn>
+            </div>
           </motion.div>
 
           <motion.div
@@ -259,20 +370,19 @@ const Customizer = () => {
                 tab={tab}
                 key={tab.name}
                 isActiveTab={activeFilterTab[tab.name]}
-                handleClick={() => downloadCanvasToImage()}
+                handleClick={handlePayment}
               />
             ))}
           </motion.div>
 
-          {/* Razorpay Payment Button */}
           <motion.div
-            className="absolute z-10 bottom-5 right-5"
+            className="absolute z-10 bottom-5 right-5 flex gap-2"
             {...fadeAnimation}
           >
             <CustomButton
               type="filled"
-              title="Buy Now"
-              handleClick={handlePayment}
+              title="Open Konva"
+              handleClick={() => setShowKonva(true)}
               customStyles="w-fit px-4 py-2.5 font-bold text-sm"
             />
           </motion.div>
