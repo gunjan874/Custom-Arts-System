@@ -381,7 +381,7 @@ const Customizer = ({ setShowKonva }) => {
           >
             <CustomButton
               type="filled"
-              title="Open Konva"
+              title="Open Editor"
               handleClick={() => setShowKonva(true)}
               customStyles="w-fit px-4 py-2.5 font-bold text-sm"
             />

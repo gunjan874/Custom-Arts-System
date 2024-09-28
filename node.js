@@ -97,4 +97,4 @@ const Shirt = () => {
   )
 }
 
-export default Shirtd
+export default Shirt

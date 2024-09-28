@@ -19,7 +19,7 @@ const CanvasModel = () => {
       <Environment files={'/city.hdr'}></Environment>
 
       <CameraRig>
-        <Backdrop/>
+        {/* <Backdrop/> */}
         <Center>
           <Shirt/>
           {/* <OrbitControls target={targetPosition}/> */}
